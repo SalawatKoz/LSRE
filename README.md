@@ -101,12 +101,25 @@ CLI-режим:
 
 Ограничения: комфортно до ~300 узлов; граф наполняется тем, что записал агент —
 автоматического обхода ещё нет.
+## Сигнатуры YARA (`lsre_yara_scan`)
+
+Внутри exe — движок **YARA-X 1.22** (BSD-3) и собственный набор правил (MIT):
+AES S-box, константы SHA-256 и MD5, таблица Base64, секции UPX и MPRESS, анти-отладочные
+строки, zlib, OpenSSL.
+
+```json
+{ "ok": true, "count": 1, "matches": [ { "rule": "antidebug_winapi_strings",
+  "hits": [ { "file_offset": "0x326fa", "rva": "0x326fa", "section": ".rdata" } ] } ] }
+```
+
+Свои правила: `lsre_yara_scan { "path": "...", "rules": "D:\\rules\\my.yar" }`.
+
 ## Проверка сборки
 
 ```
 LSRE.exe  v1.0.1 (REA 6.7.0)
-237 283 840 байт
-SHA-256 3AE56A570F901528DAD0305A446B2BA6050A12D3CDD4698FABEBA1FCC9E5E315
+244 330 496 байт
+SHA-256 8A28D4091942614FF70260388C9E930FA0F56AA77A57AD138DA128AF727D5FE9
 ```
 
 ```powershell
