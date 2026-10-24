@@ -1,4 +1,4 @@
-# Публикация LSRE на GitHub: репозиторий + релиз + (опционально) загрузка exe.
+﻿# Публикация LSRE на GitHub: репозиторий + релиз + (опционально) загрузка exe.
 # Запуск:  .\PUBLISH.ps1 -Token "ghp_..." [-Repo "login/LSRE"] [-Tag v1.0.0] [-ExePath "...\LSRE.exe"]
 param(
   [Parameter(Mandatory = $true)][string]$Token,
@@ -52,7 +52,7 @@ if (-not (git config user.email)) { git config user.email 'lsre@users.noreply.gi
 git add -A
 $pending = git status --porcelain
 if ($pending) {
-  git commit -m "LSRE $Tag: single-exe reverse engineering MCP server with local memory" | Out-Null
+  git commit -m "LSRE ${Tag}: single-exe reverse engineering MCP server with local memory" | Out-Null
   Write-Host '   коммит создан'
 } else {
   Write-Host '   изменений нет'
