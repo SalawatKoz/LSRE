@@ -92,8 +92,7 @@ Write-Host "   загрузка exe: $uploadUrl"
 
 Step '6. Загрузка exe'
 if ([string]::IsNullOrWhiteSpace($ExePath)) {
-  $defaultExe = 'D:\WORK\SMART BUILDER\LSRE\LSRE.exe'
-  if (Test-Path $defaultExe) { $ExePath = $defaultExe }
+  Write-Host '   exe не указан: добавьте -ExePath "путь\к\LSRE.exe" или прикрепите вручную'
 }
 
 if ($ExePath -and (Test-Path $ExePath)) {
