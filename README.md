@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="LSRE" width="320"></p>
+
 # LSRE — Light Start Reverse Engineering
 
 **Один exe. Реверс-инжиниринг бинарников через MCP — с памятью, которая не даёт потерять нить
