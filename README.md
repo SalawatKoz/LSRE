@@ -108,6 +108,30 @@ LSRE не заменяет эти инструменты: он вызывает 
 
 Подробнее — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Что скачать дополнительно (~700 МБ)
+
+LSRE работает сразу после скачивания: триаж, сигнатуры YARA-X, парсеры Kaitai и память
+не требуют ничего. Для глубокого статического анализа нужны два внешних пакета —
+они не входят в exe из-за размера:
+
+| Программа | Версия | Размер | Ссылка |
+|---|---|---|---|
+| **Ghidra** | 12.1.4 PUBLIC | ~400 МБ (zip) | https://github.com/NationalSecurityAgency/ghidra/releases |
+| **JDK 21** (Eclipse Temurin) | 21 LTS, Windows x64 | ~190 МБ (zip) | https://github.com/adoptium/temurin21-binaries/releases |
+
+Итого около 700 МБ загрузки и ~1 ГБ на диске после распаковки. Оба архива распаковываются
+в любую папку, установка в систему не нужна.
+
+После распаковки укажите пути:
+
+```powershell
+$env:GHIDRA_INSTALL_DIR = "C:\Tools\ghidra_12.1.4_PUBLIC"
+$env:JAVA_HOME          = "C:\Tools\jdk-21"
+.\LSRE.exe doctor --json    # покажет, нашлась ли Ghidra
+```
+
+Без этих пакетов LSRE тоже работает: Frida, YARA-X, Kaitai, память, визуал и триаж
+доступны полностью, а инструменты Ghidra вернут понятное сообщение о ненайденном движке.
 ## Требования
 
 - Windows 10/11 x64.
