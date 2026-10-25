@@ -19,17 +19,17 @@ Exe весит 225,7 МБ — GitHub не принимает файлы боль
 - определит ваш логин,
 - создаст репозиторий `LSRE`, если его нет,
 - сделает первый коммит и запушит,
-- создаст релиз `v1.0.0` с текстом из `release/RELEASE_NOTES-v1.0.0.md`,
+- создаст релиз `v2.0.0` с текстом из `release/RELEASE_NOTES-v2.0.0.md`,
 - выведет ссылку для загрузки exe.
 
 3. Откройте ссылку релиза и **перетащите `LSRE.exe`** в поле «Attach binaries».
-   (Либо передайте `-ExePath "D:\WORK\SMART BUILDER\LSRE\LSRE.exe"` — скрипт загрузит сам
+   (Либо передайте `-ExePath "C:\Tools\LSRE.exe"` — скрипт загрузит сам
    через curl; 225 МБ будут грузиться несколько минут.)
 
 ## Вариант 2 — вручную
 
 ```powershell
-cd "D:\WORK\SMART BUILDER\LSRE-repo"
+cd C:\LSRE-repo
 git init
 git add .
 git commit -m "LSRE v1.0.0: reverse engineering MCP server with local memory"
@@ -38,8 +38,8 @@ git remote add origin https://github.com/ВАШ_ЛОГИН/LSRE.git
 git push -u origin main
 ```
 
-Дальше на GitHub: Releases → Draft a new release → tag `v1.0.0` → вставить текст из
-`release/RELEASE_NOTES-v1.0.0.md` → прикрепить `LSRE.exe` → Publish.
+Дальше на GitHub: Releases → Draft a new release → tag `v2.0.0` → вставить текст из
+`release/RELEASE_NOTES-v2.0.0.md` → прикрепить `LSRE.exe` → Publish.
 
 ## Что попадёт в репозиторий
 
@@ -50,12 +50,12 @@ git push -u origin main
 | `NOTICE.md` | происхождение и сторонние компоненты |
 | `POLICY.md` | позиция проекта: исследование, без обхода защиты |
 | `docs/ARCHITECTURE.md` | как устроено |
-| `release/RELEASE_NOTES-v1.0.0.md` | текст релиза |
+| `release/RELEASE_NOTES-v2.0.0.md` | текст релиза |
 | `.gitignore` | исключает exe, БД, распаковку |
 
 ## После публикации — чек-лист
 
-- [ ] В README указан актуальный SHA-256: `61087E23…9E47`.
+- [ ] В README указан актуальный SHA-256: `26C37BE9…102D`.
 - [ ] В релизе приложен именно тот exe (сверьте хеш).
 - [ ] Тег `v1.0.0` стоит на коммите, где README и NOTES согласованы.
 - [ ] Лицензия видна на странице репозитория (GitHub определит MIT автоматически).

@@ -3,7 +3,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$Token,
   [string]$Repo = '',
-  [string]$Tag = 'v1.0.0',
+  [string]$Tag = 'v2.0.0',
   [string]$ExePath = ''
 )
 
