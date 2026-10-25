@@ -19,7 +19,7 @@ Exe весит 225,7 МБ — GitHub не принимает файлы боль
 - определит ваш логин,
 - создаст репозиторий `LSRE`, если его нет,
 - сделает первый коммит и запушит,
-- создаст релиз `v2.0.0` с текстом из `release/RELEASE_NOTES-v2.0.0.md`,
+- создаст релиз `v2.0.0` с текстом из `release/RELEASE_NOTES-v2.0.1.md`,
 - выведет ссылку для загрузки exe.
 
 3. Откройте ссылку релиза и **перетащите `LSRE.exe`** в поле «Attach binaries».
@@ -39,7 +39,7 @@ git push -u origin main
 ```
 
 Дальше на GitHub: Releases → Draft a new release → tag `v2.0.0` → вставить текст из
-`release/RELEASE_NOTES-v2.0.0.md` → прикрепить `LSRE.exe` → Publish.
+`release/RELEASE_NOTES-v2.0.1.md` → прикрепить `LSRE.exe` → Publish.
 
 ## Что попадёт в репозиторий
 
@@ -50,7 +50,7 @@ git push -u origin main
 | `NOTICE.md` | происхождение и сторонние компоненты |
 | `POLICY.md` | позиция проекта: исследование, без обхода защиты |
 | `docs/ARCHITECTURE.md` | как устроено |
-| `release/RELEASE_NOTES-v2.0.0.md` | текст релиза |
+| `release/RELEASE_NOTES-v2.0.1.md` | текст релиза |
 | `.gitignore` | исключает exe, БД, распаковку |
 
 ## После публикации — чек-лист
