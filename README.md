@@ -156,7 +156,7 @@ $env:JAVA_HOME          = "C:\Tools\jdk-21"
 
 ## Лицензия и происхождение
 
-LSRE — сборка на основе REA 6.7.0 (MIT, © morluto, https://github.com/morluto/rea).
+LSRE © 2026 SalawatKoz, MIT. Основа — REA 6.7.0 (MIT, © morluto, https://github.com/morluto/rea).
 Текст лицензии — [LICENSE](LICENSE), сторонние компоненты и их лицензии — [NOTICE.md](NOTICE.md).
 Позиция проекта — [POLICY.md](POLICY.md): инструмент исследования и обучения, без обхода
 технических средств защиты и без распространения чужого кода.
