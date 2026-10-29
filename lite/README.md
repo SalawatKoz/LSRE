@@ -9,7 +9,9 @@
 |---|---|
 | `triage.mjs` | Потоковый триаж по смещениям (файл целиком не читается) |
 | `memory.mjs` | Память: факты → наблюдения → граф → страницы (4 слоя Hindsight-lite) |
-| `server.mjs` | MCP-сервер (stdio JSON-RPC 2.0), 15 инструментов |
+| `server.mjs` | MCP-сервер (stdio JSON-RPC 2.0), 22 инструмента |
+| `ghidra.mjs` + `ghidra_export.java` | Свой диспетчер Ghidra headless: импорт с кэшем, декомпиляция, строки, xrefs |
+| `frida.mjs` | Frida 17: процессы, модули, свои скрипты в процессах (attach/spawn) |
 | `test.mjs` | 27 регрессионных тестов — по каждому пункту критики v2.2.0 |
 | `demo.mjs` | Демо полного конвейера |
 
@@ -52,4 +54,9 @@ SQLite, pcap/pcapng, wasm, OLE2, тексты (UTF-8/16, кириллица).
 
 `lsre_analyze` (факт-шит ≤2 КБ + память + граф), `lsre_triage`, `lsre_recall`, `lsre_context`
 (бюджет 500–8000 **байт**), `lsre_remember`, `lsre_observe`, `lsre_page_get/set`,
-`lsre_anchor`, `lsre_resume`, `lsre_graph_add/query/stats`, `lsre_stats`, `lsre_doctor`.
+`lsre_anchor`, `lsre_resume`, `lsre_graph_add/query/stats`, `lsre_stats`, `lsre_doctor`,
+**Ghidra**: `lsre_ghidra_open/decompile/strings/xrefs` (кэш проекта, повторные вызовы — секунды),
+**Frida**: `lsre_frida_processes/modules/run` (attach/spawn, явная цель обязательна).
+
+Ghidra и Frida — необязательные: без них сервер работает, инструменты вернут явную ошибку.
+Пути: `GHIDRA_INSTALL_DIR`, `JAVA_HOME` (JDK21), `GHIDRA_PROJECTS`.

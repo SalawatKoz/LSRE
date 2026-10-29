@@ -8,6 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { triage } from './triage.mjs';
 import * as mem from './memory.mjs';
+import { ghidraQuery } from './ghidra.mjs';
+import * as frida from './frida.mjs';
 
 const VERSION = '1.0.0';
 const DB_PATH = process.env.LSRE_LITE_DB
@@ -35,6 +37,13 @@ const TOOLS = [
   { name: 'lsre_graph_stats', description: 'Размер графа и топ узлов по связям.', inputSchema: { type: 'object', properties: { bank: { type: 'string' } } } },
   { name: 'lsre_stats', description: 'Сводка памяти: факты, банки, наблюдения, страницы, граф.', inputSchema: { type: 'object', properties: {} } },
   { name: 'lsre_doctor', description: 'Диагностика: путь БД, целостность SQLite, согласованность FTS.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'lsre_ghidra_open', description: 'Импорт в Ghidra headless с кэшем проекта + обзор: число функций, строки, внешние символы. Первый вызов 30–120 с, дальше быстро.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
+  { name: 'lsre_ghidra_decompile', description: 'Псевдокод функции (имя или 0x-адрес). Вывод ограничен ~10 КБ.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, function: { type: 'string' } }, required: ['path', 'function'] } },
+  { name: 'lsre_ghidra_strings', description: 'Строки программы с фильтром по подстроке.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, filter: { type: 'string' } }, required: ['path'] } },
+  { name: 'lsre_ghidra_xrefs', description: 'Кто ссылается на функцию/адрес.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, target: { type: 'string' } }, required: ['path', 'target'] } },
+  { name: 'lsre_frida_processes', description: 'Список процессов (pid, имя) — цель для attach/spawn.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'lsre_frida_modules', description: 'Модули процесса: имя, база, размер, путь.', inputSchema: { type: 'object', properties: { target: { type: 'string', description: 'pid или имя процесса' } }, required: ['target'] } },
+  { name: 'lsre_frida_run', description: 'Выполнить Frida-скрипт в процессе: attach или spawn, сбор сообщений за время. Явная цель обязательна.', inputSchema: { type: 'object', properties: { script: { type: 'string' }, target: { type: 'string', description: 'pid или имя процесса' }, mode: { type: 'string', description: 'attach | spawn' }, timeout_ms: { type: 'integer', description: '100–60000, по умолчанию 8000' } }, required: ['script', 'target'] } },
 ];
 
 // Факт-шит ≤ 2 КБ: только числа и короткие выборки.
@@ -216,6 +225,91 @@ const handlers = {
       ok: true, db_path: dbPath, version: VERSION, size: fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0,
       integrity, fts, stats: mem.stats(db),
     };
+  },
+
+  lsre_ghidra_open(args) {
+    const file = String(args.path ?? '').trim().slice(0, 1000);
+    if (!fs.existsSync(file)) return { ok: false, error: `файл не найден: ${file}` };
+    const result = ghidraQuery(file, 'overview');
+    if (!result.ok) return result;
+    const data = result.data ?? {};
+    // Экономим токены: выборки обрезаны ещё на стороне сервера.
+    return {
+      ok: true, ms: result.ms, project: result.project,
+      functions: data.functions ?? null,
+      sample: (data.sample ?? []).slice(0, 25),
+      strings: (data.strings ?? []).slice(0, 80),
+      external: (data.external ?? []).slice(0, 60),
+      note: 'дальше — lsre_ghidra_decompile / _strings / _xrefs по кэшированному проекту',
+    };
+  },
+
+  lsre_ghidra_decompile(args) {
+    const file = String(args.path ?? '').trim().slice(0, 1000);
+    const fn = String(args.function ?? '').trim().slice(0, 200);
+    if (!file || !fn) return { ok: false, error: 'нужны path и function' };
+    const result = ghidraQuery(file, 'decompile', fn);
+    if (!result.ok) return result;
+    const code = result.data?.code;
+    return {
+      ok: true, ms: result.ms, function: result.data?.function, address: result.data?.address,
+      error: result.data?.error, code_bytes: code ? Buffer.byteLength(code) : 0,
+      code: code ? code.slice(0, 10000) : null,
+    };
+  },
+
+  lsre_ghidra_strings(args) {
+    const file = String(args.path ?? '').trim().slice(0, 1000);
+    const filter = String(args.filter ?? '').slice(0, 100);
+    if (!fs.existsSync(file)) return { ok: false, error: `файл не найден: ${file}` };
+    const result = ghidraQuery(file, 'strings', filter);
+    if (!result.ok) return result;
+    return { ok: true, ms: result.ms, count: result.data?.strings?.length ?? 0, strings: (result.data?.strings ?? []).slice(0, 200) };
+  },
+
+  lsre_ghidra_xrefs(args) {
+    const file = String(args.path ?? '').trim().slice(0, 1000);
+    const target = String(args.target ?? '').trim().slice(0, 200);
+    if (!file || !target) return { ok: false, error: 'нужны path и target' };
+    const result = ghidraQuery(file, 'xrefs', target);
+    if (!result.ok) return result;
+    return { ok: true, ms: result.ms, count: result.data?.xrefs?.length ?? 0, xrefs: (result.data?.xrefs ?? []).slice(0, 100) };
+  },
+
+  async lsre_frida_processes() {
+    try {
+      const processes = await frida.listProcesses();
+      return { ok: true, count: processes.length, processes };
+    } catch (error) {
+      return { ok: false, error: `frida недоступна: ${error?.message ?? error}` };
+    }
+  },
+
+  async lsre_frida_modules(args) {
+    const target = String(args.target ?? '').trim();
+    if (!target) return { ok: false, error: 'нужна цель: pid или имя процесса' };
+    try {
+      const modules = await frida.listModules(target);
+      return { ok: true, count: modules.length, modules };
+    } catch (error) {
+      return { ok: false, error: `frida: ${error?.message ?? error}` };
+    }
+  },
+
+  async lsre_frida_run(args) {
+    const script = String(args.script ?? '');
+    const target = String(args.target ?? '').trim();
+    if (!script || !target) return { ok: false, error: 'нужны script и target' };
+    try {
+      const result = await frida.runScript({
+        script, target,
+        mode: String(args.mode ?? 'attach') === 'spawn' ? 'spawn' : 'attach',
+        timeoutMs: clampInt(args.timeout_ms, 100, 60000, 8000),
+      });
+      return { ...result, messages: result.messages ?? [] };
+    } catch (error) {
+      return { ok: false, error: `frida: ${error?.message ?? error}` };
+    }
   },
 };
 
