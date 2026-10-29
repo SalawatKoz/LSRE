@@ -71,7 +71,7 @@ function compactSheet(sheet, budgetBytes = 2048) {
       icons: sheet.resources.icons,
     };
   } else {
-    for (const key of ['names', 'entries', 'libraries', 'strings', 'classes', 'methods', 'width', 'height', 'javascript', 'open_action', 'launch', 'encoding', 'lines', 'note']) {
+    for (const key of ['names', 'entries', 'libraries', 'strings', 'classes', 'methods', 'width', 'height', 'javascript', 'open_action', 'launch', 'encoding', 'lines', 'note', 'magic', 'header_hex', 'header_u32', 'zlib_streams_1mb', 'zlib_offsets', 'zip_headers_1mb', 'ifc_refs_4mb', 'tail_hex']) {
       if (sheet[key] !== undefined && sheet[key] !== null) parts[key] = sheet[key];
     }
   }
@@ -101,6 +101,10 @@ function factText(sheet) {
     return `Файл ${file}: ${sheet.size} б, PE ${sheet.arch} ${sheet.bits}-bit (${sheet.subsystem}), EP ${sheet.entry_section ?? 'вне секций'}, `
       + `секций ${sheet.sections?.length ?? 0}, импорт ${sheet.imports?.count ?? 0} DLL / ${sheet.imports?.funcs ?? 0} функций (${sample}), `
       + `экспорт ${sheet.exports?.count ?? 0}${pdb}${sig}${ver}${tls}${packer}`;
+  }
+  if (sheet.type === 'pln') {
+    return `Файл ${file}: ${sheet.size} б, контейнер ArchiCAD 'ROF FDB', заголовок ${sheet.header_hex}, `
+      + `zlib-потоков в 1-м МБ: ${sheet.zlib_streams_1mb}, IFC-ссылок в 4-х МБ: ${sheet.ifc_refs_4mb}, хвост: ${sheet.tail_hex}`;
   }
   return `Файл ${file}: ${sheet.size} б, тип ${sheet.type}${sheet.arch ? `, ${sheet.arch}` : ''}`;
 }

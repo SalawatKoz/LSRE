@@ -484,8 +484,12 @@ function triagePLN(reader, sheet) {
   sheet.header_u32 = [u32(h, 8), u32(h, 12), u32(h, 16), u32(h, 20)];
   const probe = reader.read(0, Math.min(reader.size, 1 << 20));
   let zlibCount = 0;
+  const zlibOffsets = [];
   for (let i = 0; i + 1 < probe.length; i += 1) {
-    if (probe[i] === 0x78 && (probe[i + 1] === 0x01 || probe[i + 1] === 0x9c || probe[i + 1] === 0xda)) zlibCount += 1;
+    if (probe[i] === 0x78 && (probe[i + 1] === 0x01 || probe[i + 1] === 0x9c || probe[i + 1] === 0xda)) {
+      zlibCount += 1;
+      if (zlibOffsets.length < 40) zlibOffsets.push(i);
+    }
   }
   let pkCount = 0;
   for (let i = 0; i + 3 < probe.length; i += 1) {
@@ -493,8 +497,11 @@ function triagePLN(reader, sheet) {
   }
   const latin = reader.read(0, Math.min(reader.size, 4 << 20)).toString('latin1');
   sheet.zlib_streams_1mb = zlibCount;
+  sheet.zlib_offsets = zlibOffsets;
   sheet.zip_headers_1mb = pkCount;
   sheet.ifc_refs_4mb = latin.split('IFC').length - 1;
+  // Хвост: у многих контейнеров в конце — индекс. Последние 32 байта.
+  sheet.tail_hex = reader.read(Math.max(0, reader.size - 32), Math.min(32, reader.size)).toString('hex');
 }
 
 // ---------- PKCS7 (минимальный DER) ----------
