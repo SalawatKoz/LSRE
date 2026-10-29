@@ -29,3 +29,5 @@ lsre-tmp/
 *.db
 *.db-wal
 *.db-shm
+
+lsre-lite-*.zip
