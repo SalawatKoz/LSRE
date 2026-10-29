@@ -340,6 +340,12 @@ test('MCP: doctor — целостность БД', async () => {
   assert.equal(payload.ok, true);
   assert.equal(payload.integrity[0], 'ok');
 });
+test('MCP: frida процессы через плагин (async-хендлер)', async () => {
+  const res = await server.rpc('tools/call', { name: 'lsre_frida_processes', arguments: {} });
+  const payload = JSON.parse(res.result.content[0].text);
+  assert.equal(payload.ok, true, payload.error ?? 'пустой ответ (не дождались Promise)');
+  assert.ok(payload.count > 0);
+});
 
 test('cleanup', async () => {
   if (server) await server.close();

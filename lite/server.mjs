@@ -350,7 +350,7 @@ reader.on('line', async (line) => {
       if (!handler) { fail(id, -32602, `неизвестный инструмент: ${name}`); return; }
       let payload;
       try {
-        payload = handler(params?.arguments ?? {});
+        payload = await handler(params?.arguments ?? {});
       } catch (error) {
         log(`инструмент ${name} упал:`, error.message);
         payload = { ok: false, error: error?.message ?? String(error) };
