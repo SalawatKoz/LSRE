@@ -1,11 +1,11 @@
 MIT License
 
-Copyright (c) 2026 SalawatKoz — LSRE: упаковка в один исполняемый файл, диспетчер
-инструментов, локальная память (SQLite/FTS5), триаж PE, интеграция YARA-X и Kaitai,
-веб-карта связей, панель захвата.
+Copyright (c) 2026 SalawatKoz (LSRE engine, LSRE changes and documentation)
 
-Copyright (c) 2026 morluto — REA (https://github.com/morluto/rea), движок анализа
-и MCP-сервер, на котором основана сборка.
+The desktop shell in `shell/` is a modified fork of Craft Anything:
+Copyright (c) 2026 ArtCraft Team and the Craft Anything contributors,
+licensed under MIT OR Apache-2.0 (this distribution uses the MIT option).
+Modified files carry changes made for LSRE.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -1,33 +1,16 @@
-# Служебное
-*.log
-*.tmp
-.DS_Store
-Thumbs.db
-
-# Сборка и зависимости
-node_modules/
-dist/
-LSRE-build/
-rea-clean/
-rea-src/
-
-# Бинарники — только через Releases
-LSRE.exe
+# бинарники и данные — в Releases, не в git
 *.exe
-*.dll
-*.node
 *.zip
-*.7z
-*.tar
-*.tar.zst
-
-# Локальная память и прогоны
-lsre-runtime/
-lsre-memory/
-lsre-tmp/
-.lsre/
-*.db
-*.db-wal
-*.db-shm
-
-lsre-lite-*.zip
+*.onnx
+*.dll
+*.so
+*.dylib
+engine/node_modules/
+engine/tools/
+model/
+data/
+node_modules/
+target/
+.dsh-backups/
+*.log
+!docs/**/*.md

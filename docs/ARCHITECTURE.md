@@ -1,54 +1,70 @@
-# Архитектура LSRE
+# Архитектура
 
 ## Слои
 
 ```
-LSRE.exe (self-extracting, Node SEA)
-  └─ stub: распаковка payload (zstd → tar) в LSRE_INSTALL_DIR
-       └─ node.exe  (из payload)
-            └─ lsre-proxy.mjs   ← фильтр инструментов + память
-                 ├─ REA MCP-сервер (rea.mjs mcp)
-                 │    ├─ Ghidra 12.1.4 (headless, внешняя)
-                 │    └─ Frida (npm-модуль внутри payload)
-                 └─ SQLite (FTS5): facts, entities, edges, sessions, pages
+LSRE.exe (Rust/egui, форк Craft Anything)
+├─ ui-egui        экраны: чат, код, архитектура, настройки, workbench
+├─ engine (Rust)  реестр инструментов, проекты .cany, evidence, consent-политика
+└─ plugins.mcp    шов: внешний MCP-сервер → набор инструментов
+        │  stdio JSON-RPC
+        ▼
+engine/server.mjs (Node 22+, 28 инструментов)
+├─ triage.mjs      PE/ELF/Mach-O/ZIP/APK/DEX/PDF, энтропия, импорты, подпись
+├─ memory.mjs      SQLite WAL, FTS5, схема v2, граф, страницы, якорь
+├─ embed.mjs       e5-small int8 (unigram) и rubert-tiny2 (wordpiece)
+├─ formats.mjs     Kaitai: png, sqlite3, gzip, pcap
+├─ parse_yaml.mjs  YAML → JSON
+├─ yara.mjs        обёртка YARA-X (yr.exe)
+├─ ghidra.mjs      Ghidra headless + кэш проектов
+└─ frida.mjs       Frida 17: процессы, модули, скрипты
 ```
 
-## Почему один файл
+## Почему плагин, а не «всё в Rust»
+У оболочки есть штатный механизм: сервер из `config.toml` становится набором инструментов,
+его результаты попадают в evidence, вызовы идут через таймауты и consent. Это даёт:
 
-- Node SEA позволяет вшить архив в exe и не требовать установки Node.
-- Payload сжат zstd (13 МБ tar → 127 МБ), распаковка при первом запуске ~30 с.
-- Дальше exe работает как обычный Node-процесс с реальными файлами на диске — поэтому
-  Ghidra и Frida работают без патчей путей.
+- нулевую правку реестра при добавлении инструмента;
+- один язык для движка (JS) и быстрые итерации;
+- возможность менять движок, не пересобирая оболочку.
 
-## Память
+Цена — два рантайма. В full-сборке Node вложен, поэтому для пользователя это невидимо.
 
-| Таблица | Назначение |
-|---|---|
-| `facts` | факты с дедупликацией по sha256 и полнотекстовым индексом FTS5 |
-| `entities` | узлы графа: binary / module / function / service |
-| `edges` | связи: calls, contains, imports, duplicates, implements, depends_on, similar_to |
-| `sessions` | якорь: goal → done → next_step → open_questions (перезапись) |
-| `pages` | страницы знаний: архитектура, соглашения |
+## Схема памяти (v2)
 
-Схема версионируется через `PRAGMA user_version`; WAL и `busy_timeout` включены.
-
-## Экономия контекста
-
-| Режим | Инструментов | Вес схем |
-|---|---|---|
-| REA по умолчанию | 207 | 3084 КБ |
-| `compact` + выход `off` | 207 | 214 КБ |
-| + фильтр LSRE | 94 | ~75 КБ |
-
-## Сборка
-
-```
-LSRE-build/
-  build.mjs   — payload (tar + zstd) → esbuild-стаб → SEA → postject
-  stub.mjs    — распаковка и запуск
-  icon.mjs    — SVG → ICO (16…256) и вставка в PE через resedit
-  logo.svg    — логотип
+```sql
+facts(id, bank, ts, kind, text, tags, trust, source, sha)
+facts_fts(text)                          -- FTS5, unicode61
+entities(id, bank, type, name, sha, meta)
+edges(id, bank, src, dst, rel, weight, evidence, origin)
+observations(id, bank, text, support, signature, updated)
+observation_facts(observation_id, fact_id)
+pages(id, bank, slug, question, answer, sources, updated)
+anchors(bank, goal, done, next_step, open_questions, updated)
+embeddings(fact_id, bank, model, dim, scale, vec, ts)   -- int8
+meta(key, value)                          -- schema = 2
 ```
 
-Пересборка занимает ~7 минут и требует прав вне песочницы (запуск `tar`, `esbuild`,
-`postject`).
+Миграция с v1: таблицы создаются `IF NOT EXISTS`, перед обновлением версии делается
+копия `*.v1.bak` (чекпойнт WAL, затем копия).
+
+## Поиск
+Гибрид через RRF:
+1. лексика — FTS5 bm25;
+2. смысл — косинус по int8-векторам (потеря ≤ 0,0005);
+3. свежесть — полураспад 30 дней;
+4. в ответе поле `why` — видно, какой канал сработал.
+
+Детерминированно: одинаковый запрос при той же базе даёт тот же ответ. LLM не участвует.
+
+## Бюджеты
+- `lsre_triage` — факт-шит ≤ 2 КБ;
+- `lsre_context` — бюджет в **байтах** (кириллица считается по UTF-8);
+- тяжёлые ответы — пагинация `offset/limit`;
+- схема всех 28 инструментов — **9,5 КБ** на запрос.
+
+## Безопасность
+- секреты вырезаются до записи (`redact`: ключи, токены, приватные ключи, base64-блобы);
+- содержимое файлов помечается `untrusted` — текст из малвари не выглядит инструкцией;
+- `origin='user'` не принимается от агента: связь, поставленную человеком, агент не изменит;
+- политика оболочки: Clean room / Deep, подтверждения опасных действий.
