@@ -20,6 +20,12 @@ struct Mockup {
     spec: Vec<(String, String)>,
     query: String,
     found: Vec<String>,
+    /// Документ движка макетов (.figcraft), в который сконвертирован открытый файл.
+    doc: Option<PathBuf>,
+    /// Готовый рендер (PNG) от движка — показываем вместо исходного превью.
+    preview: Option<Vec<u8>>,
+    /// Последнее сообщение движка (ошибка или что сделано).
+    engine: String,
 }
 
 impl Mockup {
@@ -32,6 +38,9 @@ impl Mockup {
         self.spec.clear();
         self.draft.clear();
         self.found.clear();
+        self.doc = None;
+        self.preview = None;
+        self.engine.clear();
     }
 }
 
@@ -75,6 +84,81 @@ fn search_specs(app: &CraftApp, query: &str) -> Result<Vec<String>, String> {
         return Err("ничего не найдено (или движок ещё не видел спеку)".into());
     }
     Ok(rows)
+}
+
+fn figcraft_cli() -> Option<PathBuf> {
+    if let Ok(path) = std::env::var("LSRE_FIGCRAFT_CLI") {
+        let path = PathBuf::from(path);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        for name in ["figcraft-cli.exe", "figcraft-cli"] {
+            let candidate = dir.join("figcraft").join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn temp_dir() -> PathBuf {
+    let dir = std::env::temp_dir().join("lsre-mockup");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+fn cli(args: &[&str]) -> Result<std::process::Output, String> {
+    let binary = figcraft_cli().ok_or("движок макетов не найден (figcraft-cli)")?;
+    std::process::Command::new(binary)
+        .args(args)
+        .output()
+        .map_err(|e| e.to_string())
+}
+
+fn tail(output: &std::process::Output) -> String {
+    let text = String::from_utf8_lossy(&output.stderr);
+    text.lines().last().unwrap_or("ошибка движка").to_string()
+}
+
+/// Открыть файл в движке макетов: SVG/fig/figcraft → .figcraft во временной папке.
+fn convert_to_doc(source: &Path) -> Result<PathBuf, String> {
+    let doc = temp_dir().join("mockup.figcraft");
+    let out = cli(&["convert", &source.display().to_string(), &doc.display().to_string()])?;
+    if !out.status.success() || !doc.is_file() {
+        return Err(tail(&out));
+    }
+    Ok(doc)
+}
+
+fn apply_commands(doc: &Path, commands: serde_json::Value) -> Result<(), String> {
+    let script = temp_dir().join("script.json");
+    std::fs::write(&script, commands.to_string()).map_err(|e| e.to_string())?;
+    let out = cli(&[
+        "run",
+        "--in",
+        &doc.display().to_string(),
+        "--out",
+        &doc.display().to_string(),
+        &script.display().to_string(),
+    ])?;
+    if !out.status.success() {
+        return Err(tail(&out));
+    }
+    Ok(())
+}
+
+fn render_png(doc: &Path) -> Result<Vec<u8>, String> {
+    let png = temp_dir().join("preview.png");
+    let out = cli(&["export", "--out", &png.display().to_string(), &doc.display().to_string()])?;
+    if !out.status.success() {
+        return Err(tail(&out));
+    }
+    std::fs::read(&png).map_err(|e| e.to_string())
 }
 
 fn extract_elements(svg: &str) -> Vec<String> {
@@ -144,6 +228,20 @@ fn load(mockup: &mut Mockup, path: PathBuf) -> Result<(), String> {
         }
         other => return Err(format!("формат .{other} не поддержан (svg, fig, figcraft)")),
     }
+    // Отдать файл движку макетов: конвертация и первый рендер.
+    match convert_to_doc(&path) {
+        Ok(doc) => {
+            match render_png(&doc) {
+                Ok(bytes) => {
+                    mockup.preview = Some(bytes);
+                    mockup.engine = "движок: документ открыт".into();
+                }
+                Err(error) => mockup.engine = format!("движок: {error}"),
+            }
+            mockup.doc = Some(doc);
+        }
+        Err(error) => mockup.engine = format!("движок: {error}"),
+    }
     Ok(())
 }
 
@@ -194,6 +292,54 @@ pub fn show(app: &mut CraftApp, ui: &mut Ui) {
             if let Some(path) = open_dialog(&["fig", "figcraft"]) {
                 if let Err(error) = load(&mut mockup, path) {
                     app.toast(error, true);
+                }
+            }
+        }
+        if mockup.doc.is_some() && ui.button("＋ прямоугольник").clicked() {
+            if let Some(doc) = mockup.doc.clone() {
+                let commands = json!([{ "command": "node.create", "params": {
+                    "type": "rectangle", "x": 32, "y": 32, "width": 160, "height": 56, "name": "btn"
+                }}]);
+                match apply_commands(&doc, commands).and_then(|_| render_png(&doc)) {
+                    Ok(bytes) => {
+                        mockup.preview = Some(bytes);
+                        mockup.engine = "движок: добавлен прямоугольник".into();
+                    }
+                    Err(error) => app.toast(format!("Движок: {error}"), true),
+                }
+            }
+        }
+        if mockup.doc.is_some() && ui.button("＋ текст").clicked() {
+            if let Some(doc) = mockup.doc.clone() {
+                let commands = json!([{ "command": "node.create", "params": {
+                    "type": "text", "x": 32, "y": 120, "text": "Новый текст", "name": "label"
+                }}]);
+                match apply_commands(&doc, commands).and_then(|_| render_png(&doc)) {
+                    Ok(bytes) => {
+                        mockup.preview = Some(bytes);
+                        mockup.engine = "движок: добавлен текст".into();
+                    }
+                    Err(error) => app.toast(format!("Движок: {error}"), true),
+                }
+            }
+        }
+        if mockup.doc.is_some() && ui.button("Обновить превью").clicked() {
+            if let Some(doc) = mockup.doc.clone() {
+                match render_png(&doc) {
+                    Ok(bytes) => {
+                        mockup.preview = Some(bytes);
+                        mockup.engine = "движок: превью обновлено".into();
+                    }
+                    Err(error) => app.toast(format!("Движок: {error}"), true),
+                }
+            }
+        }
+        if mockup.path.is_some() && ui.button("Открыть в редакторе").on_hover_text("Открыть файл во внешнем редакторе по умолчанию").clicked() {
+            if let Some(path) = &mockup.path {
+                let result = std::process::Command::new("cmd").args(["/c", "start", "", &path.display().to_string()]).spawn();
+                match result {
+                    Ok(_) => app.toast("Открываю во внешнем редакторе", false),
+                    Err(error) => app.toast(format!("Не удалось открыть: {error}"), true),
                 }
             }
         }
@@ -327,6 +473,13 @@ fn canvas(mockup: &Mockup, t: &Tokens, ui: &mut Ui) {
             };
             ui.label(RichText::new(path.display().to_string()).monospace().size(theme::CAPTION).color(t.text_faint));
             ui.add_space(6.0);
+            if let Some(png) = &mockup.preview {
+                let uri = format!("bytes://mockup-preview-{}.png", png.len());
+                let size = egui::vec2(ui.available_width().min(760.0), (ui.available_height() - 24.0).max(120.0));
+                ui.add(egui::Image::from_bytes(uri, egui::load::Bytes::from(png.clone())).fit_to_exact_size(size));
+                ui.label(RichText::new(&mockup.engine).size(theme::CAPTION).color(t.text_faint));
+                return;
+            }
             match (&mockup.kind, &mockup.svg) {
                 (Some(kind), Some(bytes)) if kind == "svg" => {
                     let uri = format!("bytes://mockup-{}.svg", mockup.elements.len());
