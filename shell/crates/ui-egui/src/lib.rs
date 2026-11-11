@@ -10,6 +10,7 @@
 pub mod approvals;
 pub mod architecture;
 pub mod code;
+pub mod graphics;
 pub mod view_tabs;
 pub mod builders;
 pub mod chat;
@@ -1944,6 +1945,7 @@ impl CraftApp {
                     Screen::GameFiles => game_files::show(self, ui),
                     Screen::Architecture => architecture::show(self, ui),
                     Screen::Code => code::show(self, ui),
+                    Screen::Graphics => graphics::show(self, ui),
                 })
             });
         } else {
@@ -2148,6 +2150,22 @@ impl eframe::App for CraftApp {
             if !APPLIED.swap(true, Ordering::Relaxed) {
                 self.settings.first_run_done = true;
                 self.state.screen = crate::state::Screen::Architecture;
+            }
+        }
+        if std::env::var("LSRE_START_SCREEN").as_deref() == Ok("code") {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            static APPLIED_CODE: AtomicBool = AtomicBool::new(false);
+            if !APPLIED_CODE.swap(true, Ordering::Relaxed) {
+                self.settings.first_run_done = true;
+                self.state.screen = crate::state::Screen::Code;
+            }
+        }
+        if std::env::var("LSRE_START_SCREEN").as_deref() == Ok("graphics") {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            static APPLIED_GRAPHICS: AtomicBool = AtomicBool::new(false);
+            if !APPLIED_GRAPHICS.swap(true, Ordering::Relaxed) {
+                self.settings.first_run_done = true;
+                self.state.screen = crate::state::Screen::Graphics;
             }
         }
         // This frame is being built, so the ones before it have been shown.

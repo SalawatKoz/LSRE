@@ -27,6 +27,8 @@ pub enum Screen {
     Architecture,
     /// Код проекта: файлы и просмотр текста.
     Code,
+    /// Графика: запуск FigCraft рядом с LSRE.
+    Graphics,
 }
 
 /// What the person is about to make (the Home prompt).
