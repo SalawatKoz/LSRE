@@ -57,7 +57,7 @@ pub fn show(app: &mut CraftApp, ctx: &egui::Context) {
                     ] {
                         let on = app.state.settings_tab == tab;
                         let (rect, r) = ui.allocate_exact_size(Vec2::new(150.0, 34.0), egui::Sense::click());
-                        r.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, on, tr(title)));
+                        r.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, on, tr(title)));
                         if on {
                             ui.painter().rect_filled(rect, t.radius, t.accent_soft);
                         } else if r.hovered() {

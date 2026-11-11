@@ -153,7 +153,7 @@ pub fn show(app: &mut CraftApp, ctx: &egui::Context) {
                             Entry::App(_, title, icon) => (*icon, tr(title), String::new(), tr("App")),
                             Entry::Tool { id, title, summary, toolset } => ("wrench", tr(title), format!("{id} · {summary}"), tr(toolset)),
                         };
-                        r.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, on, &title));
+                        r.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, on, &title));
                         icons::paint(
                             ui,
                             egui::Rect::from_min_size(rect.min + Vec2::new(8.0, 12.0), Vec2::splat(16.0)),

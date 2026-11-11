@@ -44,7 +44,7 @@ pub fn show(app: &mut CraftApp, ui: &mut Ui) {
         let col = if resp.hovered() { t.text } else { t.text_dim };
         ui.painter().galley_with_override_text_color(egui::pos2(r.left(), r.center().y - g.size().y / 2.0), g, col);
         widgets::focus_ring(ui, &resp, r);
-        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tr("Back")));
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tr("Back")));
         if resp.clicked() {
             app.state.first_run = match app.state.first_run {
                 FirstRunStep::Purpose => FirstRunStep::Brain,
@@ -260,7 +260,7 @@ fn option_row(ui: &mut Ui, icon: &str, title: &str, sub: &str, on: bool) -> egui
         icons::paint(ui, egui::Rect::from_center_size(egui::pos2(rect.right() - 26.0, rect.center().y), Vec2::splat(20.0)), "check", 18.0, t.accent);
     }
     widgets::focus_ring(ui, &resp, rect);
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, on, tr(title)));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, on, tr(title)));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 

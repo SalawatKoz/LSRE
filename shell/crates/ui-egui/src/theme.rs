@@ -85,7 +85,7 @@ pub struct Tokens {
 
 /// The app colour: getartcraft.com's deep accent (#1659c4). White on it passes WCAG AA; on its
 /// bright accent (#2d81ff, used for hover) it doesn't.
-pub const BRAND: Color32 = Color32::from_rgb(0x16, 0x59, 0xc4);
+pub const BRAND: Color32 = Color32::from_rgb(0xc0, 0x70, 0x14);
 
 pub const SEEN_IT: Color32 = Color32::from_rgb(0x3f, 0xb2, 0x7f);
 pub const WORKED_OUT: Color32 = Color32::from_rgb(0x5b, 0x8d, 0xef);
@@ -127,9 +127,9 @@ impl Tokens {
                 text_faint: Color32::from_rgb(0x8d, 0x8d, 0x8d),
                 icon: Color32::from_rgb(0xa8, 0xa8, 0xa6),
                 accent: BRAND,
-                accent_hover: Color32::from_rgb(0x2d, 0x81, 0xff),
-                accent_ink: Color32::from_rgb(0x74, 0xaa, 0xff),
-                accent_soft: Color32::from_rgba_unmultiplied(0x2d, 0x81, 0xff, 44),
+                accent_hover: Color32::from_rgb(0xd9, 0x8a, 0x33),
+                accent_ink: Color32::from_rgb(0xe0, 0xa0, 0x52),
+                accent_soft: Color32::from_rgba_unmultiplied(0xc0, 0x70, 0x14, 44),
                 on_accent: Color32::WHITE,
                 separator: Color32::from_rgb(0x24, 0x25, 0x27),
                 shadow: Color32::from_black_alpha(120),
@@ -159,9 +159,9 @@ impl Tokens {
                 text_faint: Color32::from_rgb(0x5d, 0x5c, 0x5e),
                 icon: Color32::from_rgb(0x4f, 0x4f, 0x52),
                 accent: BRAND,
-                accent_hover: Color32::from_rgb(0x2d, 0x81, 0xff),
+                accent_hover: Color32::from_rgb(0xd9, 0x8a, 0x33),
                 accent_ink: BRAND,
-                accent_soft: Color32::from_rgba_unmultiplied(0x2d, 0x81, 0xff, 28),
+                accent_soft: Color32::from_rgba_unmultiplied(0xc0, 0x70, 0x14, 28),
                 on_accent: Color32::WHITE,
                 separator: Color32::from_rgb(0xdb, 0xda, 0xd8),
                 shadow: Color32::from_black_alpha(20),
@@ -202,9 +202,9 @@ fn tokens_id() -> egui::Id {
 
 // ---- fonts -------------------------------------------------------------------------------------
 
-pub static DM_SANS_REGULAR: &[u8] = include_bytes!("../../../assets/fonts/DMSans-Regular.ttf");
-pub static DM_SANS_MEDIUM: &[u8] = include_bytes!("../../../assets/fonts/DMSans-Medium.ttf");
-pub static DM_SANS_BOLD: &[u8] = include_bytes!("../../../assets/fonts/DMSans-Bold.ttf");
+pub static DM_SANS_REGULAR: &[u8] = include_bytes!("../../../assets/fonts/IBMPlexSansCondensed-Regular.ttf");
+pub static DM_SANS_MEDIUM: &[u8] = include_bytes!("../../../assets/fonts/IBMPlexSansCondensed-Medium.ttf");
+pub static DM_SANS_BOLD: &[u8] = include_bytes!("../../../assets/fonts/IBMPlexSansCondensed-SemiBold.ttf");
 pub static JETBRAINS_MONO: &[u8] = include_bytes!("../../../assets/fonts/JetBrainsMono-Regular.ttf");
 
 /// A font from the optional craft-fonts build input (empty unless built with `CRAFT_FONTS_DIR`).
@@ -292,10 +292,12 @@ fn fallback_rank(name: &str) -> FallbackRank {
 }
 
 pub fn medium(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("medium".into()))
+    // Один шрифт на всё приложение (IBM Plex Sans Condensed): без именованных семейств,
+    // иначе после инициализации редактора они теряются и текст становится «□□□□».
+    FontId::proportional(size)
 }
 pub fn semibold(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("semibold".into()))
+    FontId::proportional(size)
 }
 /// The type scale: every text size in the interface is one of these.
 /// Headings (`heading`, DM Sans bold), largest first: a screen's title, a step or a dialog's

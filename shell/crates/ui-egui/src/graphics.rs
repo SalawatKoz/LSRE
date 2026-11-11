@@ -265,7 +265,7 @@ fn save_spec(mockup: &Mockup) -> Result<PathBuf, String> {
     Ok(target)
 }
 
-pub fn show(app: &mut CraftApp, ui: &mut Ui) {
+pub fn show_viewer(app: &mut CraftApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let mut mockup: Mockup = ui.data(|d| d.get_temp(egui::Id::new("mockup"))).unwrap_or_default();
     if mockup.path.is_none()
@@ -448,6 +448,11 @@ pub fn show(app: &mut CraftApp, ui: &mut Ui) {
         // пустая спецификация — ничего не показываем, подсказка уже есть в поле ввода
     }
     ui.data_mut(|d| d.insert_temp(egui::Id::new("mockup"), mockup));
+}
+
+/// Вкладка «Графика»: полноценный редактор макетов (FigCraft UI) внутри LSRE.
+pub fn show(_app: &mut CraftApp, ui: &mut Ui) {
+    crate::figembed::show(ui);
 }
 
 fn canvas(mockup: &Mockup, t: &Tokens, ui: &mut Ui) {

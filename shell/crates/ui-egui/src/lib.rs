@@ -10,6 +10,7 @@
 pub mod approvals;
 pub mod architecture;
 pub mod code;
+pub mod figembed;
 pub mod graphics;
 pub mod view_tabs;
 pub mod builders;

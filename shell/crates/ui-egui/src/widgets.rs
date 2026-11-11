@@ -54,7 +54,7 @@ pub fn toggle(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
     }
     focus_ring(ui, &resp, sw);
     let state = *on;
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, state, tr(label)));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, state, tr(label)));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
@@ -96,7 +96,7 @@ pub fn suggestion(ui: &mut Ui, text: &str) -> Response {
     let pos = egui::pos2(rect.left() + 13.0, rect.center().y - g.size().y / 2.0);
     ui.painter().galley_with_override_text_color(pos, g, theme::mix(t.text_dim, t.text, h));
     focus_ring(ui, &resp, rect);
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tr(text)));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tr(text)));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
@@ -129,7 +129,7 @@ pub fn choice_tile(ui: &mut Ui, size: Vec2, icon: &str, label: &str, blurb: &str
         icons::paint(ui, egui::Rect::from_center_size(egui::pos2(rect.right() - 20.0, rect.center().y), Vec2::splat(18.0)), "check", 18.0, t.accent_ink);
     }
     focus_ring(ui, &resp, rect);
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::RadioButton, true, on, tr(label)));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::RadioButton, true, on, tr(label)));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
@@ -180,7 +180,7 @@ pub fn primary_sized(ui: &mut Ui, icon: Option<&str>, label: &str, enabled: bool
     let fg = if enabled { t.canvas } else { t.text_faint };
     button_content(ui, rect, icon, galley, fg, fg);
     focus_ring(ui, &resp, rect);
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, tr(label)));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, tr(label)));
     if enabled { resp.on_hover_cursor(egui::CursorIcon::PointingHand) } else { resp }
 }
 
@@ -198,7 +198,7 @@ pub fn secondary(ui: &mut Ui, icon: Option<&str>, label: &str) -> Response {
     ui.painter().rect(rect, t.radius, fill, Stroke::new(1.0, stroke), egui::StrokeKind::Inside);
     button_content(ui, rect, icon, galley, t.text, t.icon);
     focus_ring(ui, &resp, rect);
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tr(label)));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tr(label)));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
@@ -257,7 +257,7 @@ pub fn segmented_scaled(ui: &mut Ui, options: &[&str], selected: usize, height: 
         let seg = egui::Rect::from_min_size(egui::pos2(x, rect.top() + pad), Vec2::new(w, height - 2.0 * pad));
         let resp = ui.interact(seg, ui.id().with(("seg", options.get(i).copied().unwrap_or_default())), Sense::click());
         let on = i == selected;
-        resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, on, tr(options.get(i).copied().unwrap_or_default())));
+        resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, on, tr(options.get(i).copied().unwrap_or_default())));
         if on {
             ui.painter().rect(seg, t.radius_sm, t.card, Stroke::new(scale, t.card_border), egui::StrokeKind::Inside);
         } else {
@@ -300,7 +300,7 @@ pub fn pill_sized(ui: &mut Ui, text: &str, fg: Color32, bg: Color32, text_size: 
     ui.painter().rect_filled(rect, t.r_sm(), bg);
     ui.painter().galley_with_override_text_color(rect.center() - g.size() / 2.0, g, fg);
     // Painted text: say it to screen readers too.
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, &label));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &label));
     resp
 }
 
@@ -376,7 +376,7 @@ pub fn big_card(ui: &mut Ui, size: Vec2, icon: &str, title: &str, blurb: &str, b
     let wrap = ui.painter().layout(tr(blurb), egui::FontId::proportional(theme::SMALL), t.text_dim, rect.width() - 44.0);
     ui.painter().galley(title_pos + Vec2::new(0.0, title_h + 8.0), wrap, t.text_dim);
     focus_ring(ui, &resp, rect);
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tr(title)));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tr(title)));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
@@ -454,7 +454,7 @@ impl egui::Widget for ProgressBar {
         let (rect, response) = ui.allocate_exact_size(self.size, Sense::hover());
         let fraction = self.fraction.filter(|f| f.is_finite()).map(|f| f.clamp(0.0, 1.0));
         response.widget_info(|| {
-            let mut info = egui::WidgetInfo::new(egui::WidgetType::ProgressIndicator);
+            let mut info = egui::WidgetInfo::new(egui::Role::ProgressIndicator);
             info.value = fraction.map(|f| f64::from(f) * 100.0);
             info
         });
@@ -511,7 +511,7 @@ impl egui::Widget for Spinner {
     fn ui(self, ui: &mut Ui) -> Response {
         let size = self.size.unwrap_or_else(|| ui.style().spacing.interact_size.y);
         let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
-        response.widget_info(|| egui::WidgetInfo::new(egui::WidgetType::ProgressIndicator));
+        response.widget_info(|| egui::WidgetInfo::new(egui::Role::ProgressIndicator));
         if ui.is_rect_visible(rect) {
             let color = self.color.unwrap_or_else(|| ui.visuals().strong_text_color());
             let radius = (rect.height().min(rect.width()) / 2.0) - 2.0;

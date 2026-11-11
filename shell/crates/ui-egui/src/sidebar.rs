@@ -166,7 +166,7 @@ pub(crate) fn row(ui: &mut Ui, icon: &str, label: &str, status: Option<(egui::Co
             ui.painter().circle_filled(egui::pos2(rect.right() - 10.0, rect.top() + 9.0), 4.0, color);
         }
         widgets::focus_ring(ui, &resp, rect);
-        resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, on, &name));
+        resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, on, &name));
         return resp.on_hover_text(name).on_hover_cursor(egui::CursorIcon::PointingHand);
     }
     // An urgent status is a small pill on the right; the name gives way to it.
@@ -193,6 +193,6 @@ pub(crate) fn row(ui: &mut Ui, icon: &str, label: &str, status: Option<(egui::Co
         (None, None) => {}
     }
     widgets::focus_ring(ui, &resp, rect);
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, on, &name));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, on, &name));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

@@ -13,6 +13,8 @@ workspace = true
 
 [dependencies]
 craft-anything-engine = { workspace = true }
+figcraft-ui-egui = { workspace = true }
+figcraft-engine = { workspace = true }
 craft-anything-engines = { workspace = true }
 craft-anything-ai = { workspace = true }
 craft-anything-setup = { workspace = true }

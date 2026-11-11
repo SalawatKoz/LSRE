@@ -279,7 +279,7 @@ fn list_row(ui: &mut Ui, r: &Value, selected: bool, h: f32) -> bool {
     }
     let name = row_name(r).unwrap_or_else(|| truncate(&r.to_string(), 80));
     let addr = row_address(r);
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, selected, &name));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, selected, &name));
     let x = rect.left() + 8.0;
     if let Some(a) = &addr {
         let g = ui.painter().layout_no_wrap(a.clone(), theme::mono(11.0), if selected { t.accent_ink } else { t.text_faint });
@@ -365,7 +365,7 @@ fn tab_strip(ui: &mut Ui, tabs: &[(&str, &str)], selected: usize) -> Option<usiz
             let g = widgets::label_galley(ui, &tr(title), 11.0, t.text);
             let w = g.size().x + if icon.is_empty() { 22.0 } else { 42.0 };
             let (rect, resp) = ui.allocate_exact_size(Vec2::new(w, 32.0), egui::Sense::click());
-            resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, on, tr(title)));
+            resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, on, tr(title)));
             if !on {
                 let h = widgets::hover_t(ui, &resp);
                 ui.painter().rect_filled(rect.shrink2(Vec2::new(0.0, 3.0)), t.radius_sm, theme::mix(egui::Color32::TRANSPARENT, t.hover, h));
