@@ -52,7 +52,7 @@ try {
   await rpc('initialize', { protocolVersion: '2025-06-18', clientInfo: { name: 'deep-test' } });
   const list = await rpc('tools/list');
   const names = list.result.tools.map((t) => t.name);
-  assert('инструментов 24, есть lsre_embed/lsre_similar', names.length === 24 && names.includes('lsre_embed') && names.includes('lsre_similar'), `${names.length} шт.`);
+  assert('инструментов 28, есть lsre_embed/lsre_similar', names.length === 28 && names.includes('lsre_embed') && names.includes('lsre_similar'), `${names.length} шт.`);
 
   const t0 = Date.now();
   const first = await tool('lsre_remember', { text: 'Стена из кирпича 400 мм, утеплитель 100 мм, несущая для второго этажа', tags: 'bim', bank: 'deep' });
@@ -87,3 +87,4 @@ try {
   console.log(`\nитого: провалов ${fails.length}`);
   if (fails.length) process.exitCode = 1;
 }
+

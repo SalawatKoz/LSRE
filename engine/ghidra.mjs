@@ -28,10 +28,56 @@ function findGhidra() {
   return '';
 }
 const GHIDRA = findGhidra();
-const PROJECTS = process.env.GHIDRA_PROJECTS
-  || path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'lsre-lite', 'ghidra-projects');
+// Ghidra (NamingUtilities.checkName) запрещает сегменты пути, начинающиеся с '.'.
+// В песочнице LOCALAPPDATA/USERPROFILE торчат в .unsloth — падаем на безопасный путь.
+const hasDotSegment = (p) => String(p || '').split(/[\\/]/).some((s) => s.startsWith('.'));
+const pickProjectRoot = () => {
+  const candidates = [
+    process.env.GHIDRA_PROJECTS,
+    path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'lsre-lite', 'ghidra-projects'),
+    GHIDRA ? path.join(GHIDRA, 'support', 'lsre-projects') : null,
+    path.join(os.tmpdir(), 'lsre-ghidra-projects'),
+  ].filter(Boolean);
+  for (const c of candidates) if (!hasDotSegment(c)) return c;
+  return candidates[0] || os.tmpdir();
+};
+const PROJECTS = pickProjectRoot();
 
 const escArg = (value) => String(value).replace(/"/g, '').slice(0, 200);
+
+// Ghidra иногда пропускает неэкранированный управляющий байт прямо в текст декомпиляции,
+// и JSON.parse рвётся на нём. Легитимный JSON никогда не содержит сырых управляющих символов
+// (они всегда \\uXXXX), поэтому здесь безопасно заменить любой сырой control/C1-символ на U+FFFD.
+// Это страховка от будущих версий Ghidra, где декомпилятор начнёт выводить новые экзотики.
+const sanitizeJsonRegion = (region) => {
+  let out = '';
+  for (let i = 0; i < region.length; i++) {
+    const code = region.codePointAt(i);
+    if (code === undefined) break;
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) { out += '\uFFFD'; continue; }
+    out += region.slice(i, i + (code > 0xffff ? 2 : 1));
+  }
+  return out;
+};
+
+// Берём хвост application.log из <home>/ghidra|/.ghidra/ghidra_<ver>*/application.log.
+function readGhidraLogTail() {
+  let best = null, bestM = 0;
+  for (const base of [path.join(os.homedir(), 'ghidra'), path.join(os.homedir(), '.ghidra')]) {
+    let vers = [];
+    try { vers = fs.readdirSync(base).filter((d) => /^ghidra_/i.test(d)); } catch { continue; }
+    for (const v of vers) {
+      const f = path.join(base, v, 'application.log');
+      try { if (fs.existsSync(f)) { const m = fs.statSync(f).mtimeMs; if (m > bestM) { bestM = m; best = f; } } } catch {}
+    }
+  }
+  if (!best) return '';
+  try {
+    const text = fs.readFileSync(best).toString('utf8');
+    const lines = text.split('\n').filter((l) => /error|exception|abort|not permitted/i.test(l));
+    return (lines.length ? lines.join('\n') : text.slice(-600)).slice(0, 800);
+  } catch { return ''; }
+}
 
 function runHeadless(file, mode, arg, fresh) {
   if (!GHIDRA) {
@@ -74,18 +120,32 @@ function runHeadless(file, mode, arg, fresh) {
   const begin = out.indexOf(BEGIN);
   const end = out.indexOf(END);
   if (begin === -1 || end === -1) {
-    const tail = String(run.stderr ?? '').split('\n').slice(-6).join(' | ').slice(0, 600);
+    let tail = String(run.stderr ?? '').split('\n').slice(-6).join(' | ').slice(0, 600);
+    // Фатальные ошибки Ghidra пишут в application.log, а не в stderr — читаем его хвост.
+    if (!/error|exception|abort|not permitted/i.test(tail)) tail = readGhidraLogTail();
     return { ok: false, error: `Ghidra не вернул JSON${run.error ? ` (${run.error.message})` : ''}`, tail };
   }
+  let region = out.slice(begin + BEGIN.length, end);
+  let sanitized = false;
   let data;
-  try { data = JSON.parse(out.slice(begin + BEGIN.length, end)); } catch (parseError) {
-    const offset = Number(/(\d+)/.exec(String(parseError.message))?.[1] ?? 0);
-    return {
-      ok: false, error: `битый JSON от Ghidra: ${parseError.message.slice(0, 80)}`,
-      snippet: out.slice(begin + BEGIN.length + Math.max(0, offset - 60), begin + BEGIN.length + offset + 60),
-    };
+  try {
+    data = JSON.parse(region);
+  } catch (parseError) {
+    // Один сырой управляющий байт не должен сносить всю декомпиляцию: чистим и пробуем ещё раз.
+    try {
+      const clean = sanitizeJsonRegion(region);
+      if (clean === region) throw parseError;
+      data = JSON.parse(clean);
+      sanitized = true;
+    } catch (retryError) {
+      const offset = Number(/(\d+)/.exec(String(retryError.message))?.[1] ?? 0);
+      return {
+        ok: false, error: `битый JSON от Ghidra: ${String(retryError.message).slice(0, 80)}`,
+        snippet: region.slice(Math.max(0, offset - 60), offset + 60),
+      };
+    }
   }
-  return { ok: true, ms: Date.now() - started, project: sha, data };
+  return { ok: true, ms: Date.now() - started, project: sha, sanitized, data };
 }
 
 export function ghidraQuery(file, mode, arg = '') {

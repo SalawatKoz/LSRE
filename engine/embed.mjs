@@ -21,6 +21,7 @@ function loadOrt() {
     process.env.LSRE_ONNX_DIR,
     path.join(here, 'node_modules', 'onnxruntime-node'),
     path.join(here, '..', 'LSRE-build', 'app', 'node_modules', 'onnxruntime-node'),
+    path.join(here, '..', 'LSRE-app', 'engine', 'node_modules', 'onnxruntime-node'),
   ];
   for (const dir of candidates) {
     try {
@@ -183,7 +184,10 @@ export function createEmbedder(dir) {
     }
     state.prefixes = { query: meta.prefix?.query ?? '', passage: meta.prefix?.passage ?? '' };
     state.session = await runtime.InferenceSession.create(path.join(dir, 'model_int8.onnx'), {
-      executionProviders: ['cpu'],
+      executionProviders: (() => {
+        const want = (process.env.LSRE_EMBED_EP || 'cpu').toLowerCase();
+        return want === 'cpu' ? ['cpu'] : [want, 'cpu'];
+      })(),
       graphOptimizationLevel: 'all',
     });
     state.dim = meta.dim ?? (state.profile === 'unigram' ? 384 : 312);

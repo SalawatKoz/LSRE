@@ -13,6 +13,8 @@ import * as frida from './frida.mjs';
 import { parseFormat, supported as formatsSupported } from './formats.mjs';
 import { parseYaml } from './parse_yaml.mjs';
 import { yaraScan, yaraStatus } from './yara.mjs';
+import * as factory from './factory.mjs';
+import * as cycle from './cycle.mjs';
 
 const VERSION = '1.0.0';
 const DB_PATH = process.env.LSRE_LITE_DB
@@ -54,7 +56,22 @@ async function embedNow(limit = 8) {
   try { return await mem.embedPending(db, mod.embed, { limit, model }); } catch { return null; }
 }
 
+// --- фабрика: очередь задач (единый источник логики — factory.mjs) --------
+const FACTORY_DB = process.env.LSRE_FACTORY_DB
+  || process.env.FACTORY_DB
+  || path.join(path.dirname(dbPath), 'factory.db');
+let factoryDb = null;
+function getFactory() {
+  if (!factoryDb) {
+    fs.mkdirSync(path.dirname(FACTORY_DB), { recursive: true });
+    factoryDb = factory.openFactory(FACTORY_DB);
+  }
+  return factoryDb;
+}
+const factoryDbPath = () => FACTORY_DB;
+
 const TOOLS = [
+  { name: 'lsre_hash', description: 'Хеши файла (sha256/md5/sha1), потоково, до 2 ГБ. path — путь к файлу.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
   { name: 'lsre_analyze', description: 'Один проход: триаж по сигнатуре + факт в память + связи графа. Факт-шит ≤2 КБ. Не пишет \"pe\" без сигнатуры MZ+PE.', inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Файл для анализа' }, bank: { type: 'string', description: 'Банк памяти (default)' }, hash: { type: 'boolean', description: 'Считать sha256 (файлы ≤64 МБ)' } }, required: ['path'] } },
   { name: 'lsre_triage', description: 'Триаж без записи в память: PE (импорты с именами функций, экспорты, PDB, Rich, подпись, TLS-callbacks), ELF, Mach-O, ZIP/APK/JAR, DEX, PDF, тексты и др.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, hash: { type: 'boolean' } }, required: ['path'] } },
   { name: 'lsre_parse_format', description: 'Разбор известного формата через Kaitai Struct: png, sqlite3, gzip, pcap. Формат определяется по сигнатуре; ничего не исполняется.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, format: { type: 'string', description: 'png | sqlite3 | gzip | pcap — если нужно задать вручную' } }, required: ['path'] } },
@@ -75,6 +92,8 @@ const TOOLS = [
   { name: 'lsre_graph_query', description: 'Соседи узла в графе.', inputSchema: { type: 'object', properties: { node: { type: 'string' }, direction: { type: 'string', description: 'out | in | both' }, rel: { type: 'string' }, limit: { type: 'integer' }, bank: { type: 'string' } }, required: ['node'] } },
   { name: 'lsre_graph_stats', description: 'Размер графа и топ узлов по связям.', inputSchema: { type: 'object', properties: { bank: { type: 'string' } } } },
   { name: 'lsre_stats', description: 'Сводка памяти: факты, банки, наблюдения, страницы, граф.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'lsre_cycle', description: 'Полный цикл на локальной модели (Gemma): Triage → Plan → Apply → Verify. Модель предлагает правки, движок применяет их через бэкап и проверяет командой; при провале откат и до 3 попыток с разбором ошибки.', inputSchema: { type: 'object', properties: { id: { type: 'integer', description: 'номер задачи' }, next: { type: 'boolean', description: 'взять следующую из очереди' }, apply: { type: 'boolean', description: 'применять правки (иначе только предложение)' }, verify: { type: 'string', description: 'команда проверки, exit 0 = успех' }, model: { type: 'string', description: 'модель Ollama, по умолчанию gemma4-lsre' } } } },
+  { name: 'lsre_factory', description: 'Очередь фабрики LSRE: одна точка входа с op. list/stats — обзор, enqueue — поставить задачу (дубли по Жаккару + косинусу эмбеддингов), claim — взять из очереди, advance — следующая стадия (triage→plan→apply→verify→done), done — закрыть (на стадии verify обязателен evidence), fail — провалить, triage — пересчитать тип/приоритет, dedupe — группы похожих.', inputSchema: { type: 'object', properties: { op: { type: 'string', enum: ['list', 'stats', 'enqueue', 'claim', 'advance', 'done', 'fail', 'triage', 'dedupe'], description: 'действие' }, id: { type: 'integer' }, title: { type: 'string' }, note: { type: 'string' }, kind: { type: 'string', description: 'bug|test|docs|refactor|feature|task' }, priority: { type: 'string', description: 'P0..P4' }, limit: { type: 'integer' }, status: { type: 'string' }, stage: { type: 'string' }, result: { type: 'string' }, evidence: { type: 'string' }, error: { type: 'string' }, threshold: { type: 'number' } }, required: ['op'] } },
   { name: 'lsre_doctor', description: 'Диагностика: путь БД, целостность SQLite, согласованность FTS.', inputSchema: { type: 'object', properties: {} } },
   { name: 'lsre_ghidra_open', description: 'Импорт в Ghidra headless с кэшем проекта + обзор: число функций, строки, внешние символы. Первый вызов 30–120 с, дальше быстро.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
   { name: 'lsre_ghidra_decompile', description: 'Псевдокод функции (имя или 0x-адрес). Вывод ограничен ~10 КБ.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, function: { type: 'string' } }, required: ['path', 'function'] } },
@@ -154,6 +173,20 @@ const PLAIN_NAMES = process.env.LSRE_PLAIN_NAMES === '1';
 const EXPOSED_TOOLS = PLAIN_NAMES ? TOOLS.map((tool) => ({ ...tool, name: tool.name.replace(/^lsre_/, '') })) : TOOLS;
 
 const handlers = {
+  async lsre_hash(args) {
+    const file = String(args.path ?? '').trim().slice(0, 1000);
+    if (!file) return { ok: false, error: 'нужен path' };
+    if (!fs.existsSync(file)) return { ok: false, error: `файл не найден: ${file}` };
+    const stat = fs.statSync(file);
+    if (!stat.isFile() || stat.size > 2 * 1024 ** 3) return { ok: false, error: 'нужен файл до 2 ГБ' };
+    const crypto = await import('node:crypto');
+    const h = { sha256: crypto.createHash('sha256'), md5: crypto.createHash('md5'), sha1: crypto.createHash('sha1') };
+    for await (const chunk of fs.createReadStream(file)) {
+      h.sha256.update(chunk); h.md5.update(chunk); h.sha1.update(chunk);
+    }
+    return { ok: true, path: file, size: stat.size, sha256: h.sha256.digest('hex'), md5: h.md5.digest('hex'), sha1: h.sha1.digest('hex') };
+  },
+
   async lsre_analyze(args) {
     const file = String(args.path ?? '').trim().slice(0, 1000);
     if (!file) return { ok: false, error: 'нужен path' };
@@ -301,6 +334,38 @@ const handlers = {
     if (!query) return { ok: false, error: 'пустой запрос' };
     const bank = args.bank ? String(args.bank).trim().slice(0, 40) : null;
     return mem.buildContext(db, { query, bank, budgetBytes: clampInt(args.budget_bytes, 500, 8000, 3000) });
+  },
+
+  async lsre_cycle(args) {
+    const res = await cycle.runCycle({
+      db: getFactory(),
+      id: Number(args.id) || 0,
+      next: Boolean(args.next),
+      apply: Boolean(args.apply),
+      verify: String(args.verify || ''),
+      model: String(args.model || ''),
+    });
+    return { ...res, db: factoryDbPath() };
+  },
+
+  async lsre_factory(args) {
+    const op = String(args.op || 'list');
+    const fdb = getFactory();
+    const ctx = {};
+    const mod = await getEmbedder();
+    if (mod) {
+      ctx.embed = (text) => mod.embed(String(text).slice(0, 4000), 'query');
+      ctx.cosine = mod.cosine;
+    }
+    if (op === 'list') return { ...factory.describe(fdb, { status: args.status || null, stage: args.stage || null }), db: factoryDbPath() };
+    if (op === 'stats') {
+      const s = factory.describe(fdb, {});
+      return { ok: true, db: factoryDbPath(), total: s.total, byStatus: s.byStatus, byStage: s.byStage };
+    }
+    return factory.action(fdb, {
+      op, id: args.id, title: args.title, note: args.note, kind: args.kind, priority: args.priority,
+      limit: args.limit, result: args.result, evidence: args.evidence, error: args.error, threshold: args.threshold,
+    }, ctx);
   },
 
   async lsre_remember(args) {

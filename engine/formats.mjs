@@ -68,7 +68,12 @@ const EXPORT_NAME = { png: 'Png', sqlite3: 'Sqlite3', gzip: 'Gzip', pcap: 'Pcap'
 /** Разобрать известный формат: { ok, format, size, data }. */
 export function parseFormat(file) {
   const format = detect(file);
-  if (!format) return { ok: false, error: `формат не поддержан (есть: ${supported().join(', ')})`, supported: supported() };
+    if (!format) {
+    const byExt = { gz: 'gzip', png: 'png', db: 'sqlite3', sqlite3: 'sqlite3', pcap: 'pcap', cap: 'pcap' };
+    const hint = byExt[path.extname(file).slice(1).toLowerCase()];
+    return { ok: false, error: `формат не поддержан (есть: ${supported().join(', ')})` +
+      (hint ? ` — расширение намекает на ${hint}, но сигнатура не совпала: файл, скорее всего, не настоящий ${hint}` : '') };
+  }
   const size = fs.statSync(file).size;
   if (size > 64 * 1024 * 1024) return { ok: false, error: 'файл больше 64 МБ — разбор ограничен' };
   const mod = require(path.join(here, 'formats', PARSERS[format].file));
